@@ -3,38 +3,41 @@
 #include <omp.h>
 #include <cassert>
 #include "LinearAlgebra.hpp"
+#include "ColumnView.hpp"
 
-struct Matrix {
+namespace LA {
 
-    Matrix() = delete;
-    explicit Matrix(size_t rows, size_t cols);
-    explicit Matrix(std::span<double> data);
+    struct Matrix {
 
-    Matrix(const Matrix&) = default;
-    Matrix(Matrix&&) = default;
+        Matrix() = delete;
+        explicit Matrix(size_t rows, size_t cols);
+        explicit Matrix(size_t rows, size_t cols, std::span<const double> data);
 
-    inline double& operator()(size_t row, size_t col) noexcept;
+        inline double& operator()(size_t row, size_t col) noexcept {
+            return data_[col*rows_+cols_];
+        }
 
-    inline const double& operator()(size_t row, size_t col) const noexcept;
+        inline const double& operator()(size_t row, size_t col) const noexcept {
+            return data_[col*rows_+cols_];
+        }
 
-    Matrix operator*(Matrix& rhs);
+        auto operator*(const Matrix& rhs) const -> Matrix;
 
-    Matrix transpose() const;
+        auto inline rows() const noexcept -> size_t { return rows_;}
+        auto inline cols() const noexcept -> size_t {return cols_;}
 
-    Matrix Solve(const Matrix& mat) const;
+        auto SubColumn(size_t column) const -> ColumnView;
+        auto getColumn(size_t column) const -> ColumnView;
 
-    Matrix QRSolve(const Matrix& y) const;
-private:
-    void HouseholderQR(Matrix& A, std::vector<double>& tau);
+        auto transpose() const -> Matrix;
 
-    inline void applyHouseholdToCol(Matrix& A, size_t k, size_t j, double tau);
-    inline double tailSumSquares(Matrix& A, size_t startInd);
+        auto Solve(const Matrix& mat) const -> Matrix;
+        auto QRSolve(const Matrix& y) const -> Matrix;
+    private:
 
-    void inPlaceQT(const Matrix& A, const std::vector<double>& tau, Matrix& Y);
+        std::vector<double> data_;
+        size_t rows_{};
+        size_t cols_{};
+    };
 
-    void backSub(const Matrix& A, Matrix& B);
-
-    std::vector<double> data_;
-    size_t rows_{};
-    size_t cols_{};
-};
+}

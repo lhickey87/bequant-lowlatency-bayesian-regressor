@@ -3,7 +3,15 @@
 #include <cassert>
 
 namespace LA {
-    void partialCopy(std::vector<double>& data, std::vector<double>& result, size_t length, size_t index);
-    auto dotProduct(std::vector<double>& lhs, std::vector<double>& rhs);
-    auto partialDotProduct(std::vector<double>& lhs, std::vector<double>& rhs,size_t length, size_t index);
+    struct Matrix;
+
+    auto HouseholderQR(Matrix& A, std::vector<double>& tau) -> void;
+
+    auto computeHouseholder(Matrix& A, size_t k, std::vector<double>& tau) -> void;
+
+    auto applyHouseholdToCol(Matrix& A, size_t k, size_t j, double tau) -> void;
+
+    auto inPlaceQT(const Matrix& A, const std::vector<double>& tau, Matrix& Y) -> void;
+
+    auto backSub(const Matrix& A, Matrix& B) -> void;
 }
