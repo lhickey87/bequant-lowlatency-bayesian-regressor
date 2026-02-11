@@ -4,28 +4,53 @@
 #include <cassert>
 
 namespace LA {
+    template <typename T>
     struct ColumnView {
 
-        ColumnView(std::span<double> col);
-        explicit ColumnView(const double* data, size_t length);
-        explicit ColumnView(double* data, size_t length);
+        using span_t = std::span<T>;
 
-        auto inline operator[](size_t index) -> double&
+        ColumnView(span_t col) : data_(col) {}
+        explicit ColumnView(T* data, size_t length) : data_(data, length) {}
+
+        auto inline operator[](size_t index) -> T&
         {
             return data_[index];
         }
 
-        auto operator-=(ColumnView rhs) -> void;
-        auto operator*=(double scalar) -> void;
+        auto inline operator[](size_t index) const -> const T&
+        {
+            return data_[index];
+        }
+
+        auto operator-=(ColumnView rhs) -> void
+        {
+            assert(length() == rhs.length());
+            for (size_t i = 0; i < length(); ++i)
+            {
+                data_[i] -= rhs[i];
+            }
+        }
+
+        auto operator*=(double scalar) -> void
+        {
+            for (size_t i = 0; i < length();++i)
+            {
+                data_[i] *= scalar;
+            }
+        }
 
         auto inline begin() {return data_.begin();}
         auto inline end() {return data_.end();}
-        auto inline size() const -> size_t{ return data_.size();}
+        auto inline begin() const {return data_.begin();}
+        auto inline end() const {return data_.end();}
+        auto inline length() const -> size_t{ return data_.size();}
+
+        auto inline data() const -> T* { return data_.data(); }
 
         auto inline addScaled(ColumnView x, double a) noexcept
         {
-            assert(size() == x.size());
-            for (size_t i = 0; i < size(); ++i) {
+            assert(length() == x.length());
+            for (size_t i = 0; i < length(); ++i) {
                 data_[i] += a * x[i];
             }
         }
@@ -36,9 +61,29 @@ namespace LA {
         }
 
     private:
-        std::span<double> data_;
+        span_t data_;
     };
 
-    auto operator*(ColumnView lhs, ColumnView rhs) noexcept -> double;
-    auto operator*(ColumnView lhs, double scalar) noexcept -> ColumnView;
+    using Column = ColumnView<double>;
+    using ConstColumn = ColumnView<const double>;
+
+    template <typename T>
+    auto operator*(ColumnView<T> lhs, ColumnView<T> rhs) noexcept -> double
+    {
+        double sum = 0.0;
+        for (size_t i = 0; i < lhs.length();++i)
+        {
+            sum += lhs[i]*rhs[i];
+        }
+        return sum;
+    }
+
+    inline auto operator*(Column lhs, double scalar) noexcept -> Column
+    {
+        for (size_t i = 0; i < lhs.length(); ++i)
+        {
+            lhs[i] *= scalar;
+        }
+        return lhs;
+    }
 }

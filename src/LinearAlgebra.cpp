@@ -3,14 +3,14 @@
 
 namespace LA {
 
-    auto computeHouseholder(Matrix& A, size_t k, std::vector<double>& tau) -> void
+    auto computeHouseholder(Matrix& X, size_t k, std::vector<double>& tau) -> void
     {
-        const double x0 = A(k, k);
-        const auto A_K = A.SubColumn(k);
+        const double x0 = X(k, k);
+        const auto X_k = X.SubColumn(k);
 
-        const auto tailSS = A_K*A_K;
+        const auto tailSS = X_k*X_k;
 
-        if (tailSS == 0.0) { return;}
+        if (tailSS == 0.0) { return; } // tau[k] already zero-initialized
 
         const double normx = std::sqrt(x0 * x0 + tailSS);
         const double diag = (x0 >= 0.0) ? -normx : normx;
@@ -20,89 +20,105 @@ namespace LA {
         const double denom = (x0 - diag);
         assert(denom != 0.0);
 
-        for (size_t i = k + 1; i < A.rows(); ++i) {
-            A(i, k) /= denom;
+        for (size_t i = k + 1; i < X.rows(); ++i) {
+            X(i, k) /= denom;
         }
-        A(k, k) = diag;
+        X(k, k) = diag;
     }
 
 
-    void HouseholderQR(Matrix& A, std::vector<double>& tau)
+    void HouseholderQR(Matrix& X, std::vector<double>& tau)
     {
-        const size_t rows = A.rows();
-        const size_t cols = A.cols();
+        const size_t rows = X.rows();
+        const size_t cols = X.cols();
+
         assert(rows >= cols);
-        tau.assign(cols, 0.0);
+        assert(tau.size() == cols);
 
         for (size_t k = 0; k < cols; ++k) {
-            computeHouseholder(A, k, tau);
+            computeHouseholder(X, k, tau);
 
             const double tk = tau[k];
             if (tk == 0.0) continue;
 
             for (size_t j = k + 1; j < cols; ++j) {
-                // A = A - tau * v * (v^T * A)
-                applyHouseholdToCol(A, k, j, tk);
+                // X = X - tau * v * (v^T * X)
+                applyHouseholdToCol(X, k, j, tk);
             }
         }
     }
 
-    void backSub(const Matrix& R, Matrix& B)
+    void backSub(const Matrix& R, ConstColumn rhs_top, Column beta_out)
     {
         const size_t n = R.cols();
         assert(R.rows() >= n);
-        assert(B.rows() == n);
+        assert(rhs_top.length() == n);
+        assert(beta_out.length() == n);
 
-        const size_t rhsCount = B.cols();
+        for (size_t i = 0; i < n; ++i) {
+            beta_out[i] = rhs_top[i];
+        }
 
         for (size_t i = n; i-- > 0;) {
             const double rii = R(i, i);
             assert(rii != 0.0);
 
-            for (size_t col = 0; col < rhsCount; ++col) {
-                double sum = B(i, col);
-                for (size_t j = i + 1; j < n; ++j) {
-                    sum -= R(i, j) * B(j, col);
-                }
-                B(i, col) = sum / rii;
+            double sum = beta_out[i];
+            for (size_t j = i + 1; j < n; ++j) {
+                sum -= R(i, j) * beta_out[j];
             }
+            beta_out[i] = sum / rii;
         }
     }
 
-    void applyHouseholdToCol(Matrix& A, size_t k, size_t j, double tau)
+    void applyHouseholdToCol(Matrix& X, size_t k, size_t j, double tau)
     {
-        auto A_k = A.SubColumn(k);
-        auto A_j = A.SubColumn(j);
+        auto X_k = X.SubColumn(k);
+        auto X_j = X.SubColumn(j);
 
-        double dotProd = (A(k, j)+A_k*A_j)*tau;
+        double vTx = (X(k, j)+X_k*X_j)*tau;
 
-        A(k, j) -= dotProd; // v0=1
+        X(k, j) -= vTx; // v0=1
 
-        A_j.addScaled(A_k, -dotProd);
+        X_j.addScaled(X_k, -vTx);
     }
 
 
-    void inPlaceQT(Matrix& A, const std::vector<double>& tau, Matrix& y){
-        const size_t m = A.rows();
-        const size_t n = A.cols();
+    void inPlaceQT(Matrix& QT, const std::vector<double>& tau, Column y){
+        const size_t m = QT.rows();
+        const size_t n = QT.cols();
 
-        assert(y.rows() == m && y.cols() == 1);
+        assert(y.length() == m);
         assert(tau.size() == n);
 
         for (size_t k = 0; k < n; ++k) {
             const double tk = tau[k];
 
             if (tk == 0.0) continue;
+            auto X_k = QT.SubColumn(k);
 
-            auto A_K = A.SubColumn(k);
-            auto Y = y.getColumn(0);
+            double vTy = (y[k] + y*X_k)*tk;              // v0 = 1
+            y[k] -= vTy;
 
-            double dot = (y(k, 0) + Y*A_K)*tk;              // v0 = 1
-            y(k, 0) -= dot;
-
-            //Y = Y - A_K*dot
-            Y.addScaled(A_K,-dot);
+            // y = y - v * (v^T y) * tau
+            y.addScaled(X_k,-vTy);
         }
     }
 
+    auto QRSolve(Matrix& X, Column y, Column beta) -> void
+    {
+        const auto n = X.cols();
+
+        assert(X.rows() == y.length());
+        assert(beta.length() == n);
+
+        std::vector<double> tau(n,0.0);
+        HouseholderQR(X, tau);   // X -> R (upper triangle)
+        inPlaceQT(X, tau, y);    // y -> Q^T y
+
+        // Solve: R * beta = (Q^T y)_top_n
+        auto y_top = ConstColumn(y.data(), n);
+
+        backSub(X, y_top, beta);
+    }
 }

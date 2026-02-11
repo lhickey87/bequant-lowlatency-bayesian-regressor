@@ -26,18 +26,20 @@ namespace LA {
         auto inline rows() const noexcept -> size_t { return rows_;}
         auto inline cols() const noexcept -> size_t {return cols_;}
 
-        auto SubColumn(size_t column) const -> ColumnView;
-        auto getColumn(size_t column) const -> ColumnView;
+        auto SubColumn(size_t column) -> Column;
+        auto getColumn(size_t column) -> Column;
+
+        auto SubColumn(size_t column) const -> ConstColumn;
+        auto getColumn(size_t column) const -> ConstColumn;
 
         auto transpose() const -> Matrix;
-
-        auto Solve(const Matrix& mat) const -> Matrix;
-        auto QRSolve(const Matrix& y) const -> Matrix;
     private:
 
         std::vector<double> data_;
         size_t rows_{};
         size_t cols_{};
     };
+
+    auto operator*(const Matrix& X, ConstColumn rhs) -> Matrix;
 
 }

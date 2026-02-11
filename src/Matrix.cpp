@@ -20,14 +20,24 @@ namespace LA{
         return result;
     }
 
-    auto Matrix::SubColumn(size_t column) const -> ColumnView
+    auto Matrix::SubColumn(size_t column) -> Column
     {
         return ColumnView(&data_[column*rows_+(column+1)], column*rows_);
     }
 
-    auto Matrix::getColumn(size_t column) const -> ColumnView
+    auto Matrix::SubColumn(size_t column) const -> ConstColumn
+    {
+        return ConstColumn(&data_[column*rows_+(column+1)], column*rows_);
+    }
+
+    auto Matrix::getColumn(size_t column) -> Column
     {
         return ColumnView(&data_[column*rows_], column*rows_);
+    }
+
+    auto Matrix::getColumn(size_t column) const -> ConstColumn
+    {
+        return ConstColumn(&data_[column*rows_], column*rows_);
     }
 
     auto Matrix::operator*(const Matrix& rhs) const -> Matrix {
@@ -46,13 +56,16 @@ namespace LA{
         return result;
     }
 
-    auto Matrix::Solve(const Matrix& mat) const -> Matrix
+    auto operator*(const Matrix& X, ConstColumn col) ->
     {
+        const size_t vecLength = col.length();
+        assert(X.cols() == vecLength);
 
+        Matrix result(vecLength,1);
+        for (size_t i = 0; i < vecLength;++i)
+        {
+            result(i,0) =
+        }
     }
 
-    auto Matrix::QRSolve(const Matrix& y) const -> Matrix
-    {
-
-    }
 }
