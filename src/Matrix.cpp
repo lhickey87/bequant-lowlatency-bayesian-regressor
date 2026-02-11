@@ -4,7 +4,7 @@ namespace LA{
 
     Matrix::Matrix(size_t row, size_t col) : data_(row * col, 0.0), rows_(row), cols_(col) {}
 
-    Matrix::Matrix(size_t rows, size_t cols, std::span<const double> data)
+    Matrix::Matrix(size_t rows, size_t cols, std::span<double> data)
         : data_(data.begin(), data.end()), rows_(rows), cols_(cols) {
         assert(rows_ * cols_ == data_.size());
     }
@@ -40,15 +40,18 @@ namespace LA{
         return ConstColumn(&data_[column*rows_], column*rows_);
     }
 
-    auto Matrix::operator*(const Matrix& rhs) const -> Matrix {
-        assert(cols_ == rhs.rows_);
+    auto operator*(const Matrix& lhs, const Matrix& rhs) -> Matrix {
+        const auto rows = lhs.rows();
+        const auto cols = rhs.cols();
+        assert(rows == cols);
 
-        Matrix result(rows_, rhs.cols_);
+        Matrix result(rows, cols);
+
         #pragma omp parralel for if (rows_ > 128)
-        for (size_t i = 0; i < rows_; ++i) {
-            for (size_t k = 0; k < cols_; ++k) {
-                auto aik = (*this)(i, k);          // reuse this value
-                for (size_t j = 0; j < rhs.cols_; ++j) {
+        for (size_t i = 0; i < rows; ++i) {
+            for (size_t k = 0; k < lhs.cols(); ++k) {
+                auto aik = lhs(i,k);
+                for (size_t j = 0; j < cols; ++j) {
                     result(i, j) += aik * rhs(k, j);
                 }
             }
@@ -56,16 +59,22 @@ namespace LA{
         return result;
     }
 
-    auto operator*(const Matrix& X, ConstColumn col) ->
+    auto operator*(const Matrix& X, ConstColumn col) -> std::vector<double>
     {
-        const size_t vecLength = col.length();
-        assert(X.cols() == vecLength);
+        const size_t cols = col.length();
+        const size_t rows = X.rows();
+        assert(X.cols() == cols);
 
-        Matrix result(vecLength,1);
-        for (size_t i = 0; i < vecLength;++i)
-        {
-            result(i,0) =
+        //already zeroed out
+        std::vector<double> yHat(rows,0.0);
+        for (size_t j = 0; j < cols; ++j){
+            const auto col_j = col[j];
+            auto X_j = X.getColumn(j);
+            for (size_t i = 0; i < rows; ++i){
+                yHat[i] = X_j[i] * col_j;
+            }
         }
+        return yHat;
     }
 
 }

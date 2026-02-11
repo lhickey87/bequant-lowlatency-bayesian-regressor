@@ -11,7 +11,7 @@ namespace LA {
 
         Matrix() = delete;
         explicit Matrix(size_t rows, size_t cols);
-        explicit Matrix(size_t rows, size_t cols, std::span<const double> data);
+        explicit Matrix(size_t rows, size_t cols, std::span<double> data);
 
         inline double& operator()(size_t row, size_t col) noexcept {
             return data_[col*rows_+cols_];
@@ -21,7 +21,6 @@ namespace LA {
             return data_[col*rows_+cols_];
         }
 
-        auto operator*(const Matrix& rhs) const -> Matrix;
 
         auto inline rows() const noexcept -> size_t { return rows_;}
         auto inline cols() const noexcept -> size_t {return cols_;}
@@ -40,6 +39,7 @@ namespace LA {
         size_t cols_{};
     };
 
-    auto operator*(const Matrix& X, ConstColumn rhs) -> Matrix;
+    auto operator*(const Matrix& lhs, const Matrix& rhs) -> Matrix;
+    auto operator*(const Matrix& X, ConstColumn rhs) -> std::vector<double>;
 
 }
